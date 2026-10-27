@@ -60,7 +60,7 @@ def net_of_costs(
 
     Args:
         gross: Retornos diarios brutos.
-        position: Posición diaria en BTC, entre -1 y 1.
+        position: Posición diaria en el activo, entre -1 y 1.
         funding_rate: Tasa de funding diaria del perpetuo.
         spot_cost: Costo por lado al contado, como fracción (comisión más slippage).
         perp_cost: Costo por lado en el perpetuo, como fracción.
@@ -126,7 +126,7 @@ def run_backtest(signal_frame: pd.DataFrame, config: BacktestConfig) -> Backtest
     """Corre el backtest de la estrategia con CFGI y del momentum puro.
 
     Recorta la tabla al período de evaluación y descarta los días sin datos
-    suficientes. Cada día, la fracción expuesta a BTC gana el retorno de BTC y el
+    suficientes. Cada día, la fracción expuesta al activo gana el retorno del activo y el
     resto queda en el activo de refugio (DTB3). Si `config.apply_costs` es True, los
     retornos son netos de costos (ver `net_of_costs`).
 
@@ -143,7 +143,7 @@ def run_backtest(signal_frame: pd.DataFrame, config: BacktestConfig) -> Backtest
     period = (signal_frame.index >= pd.Timestamp(config.start_date)) & (
         signal_frame.index <= pd.Timestamp(config.end_date)
     )
-    required = ["btc_return", "dtb3", "funding_rate", "momentum_position", "strategy_position"]
+    required = ["asset_return", "dtb3", "funding_rate", "momentum_position", "strategy_position"]
     frame = signal_frame.loc[period].dropna(subset=required).copy()
     if frame.empty:
         raise ValueError("No existen observaciones operables para el período solicitado")
@@ -157,7 +157,7 @@ def run_backtest(signal_frame: pd.DataFrame, config: BacktestConfig) -> Backtest
     for name, position_column in POSITION_COLUMNS.items():
         position = frame[position_column]
         refuge_weight = 1.0 - position.abs()
-        returns[name] = position * frame["btc_return"] + refuge_weight * frame["refuge_return"]
+        returns[name] = position * frame["asset_return"] + refuge_weight * frame["refuge_return"]
 
         if config.apply_costs:
             returns[name] = net_of_costs(

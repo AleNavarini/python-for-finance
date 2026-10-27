@@ -1,6 +1,6 @@
-# Momentum en Bitcoin con filtro de sentimiento (CFGI)
+# python-for-finance
 
-Código de la tesina de la Maestría en Finanzas (UCEMA). Evalúa si salir del mercado durante episodios extremos del Crypto Fear and Greed Index (CFGI) mejora una estrategia de momentum de series de tiempo sobre BTC/USDT.
+Backtests en Python para finanzas cuantitativas. El primer proyecto evalúa si salir del mercado durante episodios extremos del Crypto Fear and Greed Index (CFGI) mejora una estrategia de momentum de series de tiempo sobre BTC/USDT o ETH/USDT.
 
 Todo el código vive en `src/tesina_backtest/`. El período de evaluación tiene fecha de fin fija, de modo que descargar datos nuevos no cambia los resultados.
 
@@ -17,12 +17,13 @@ uv sync --python 3.12
 ```bash
 uv run python -m tesina_backtest                 # grilla completa con costos (~15 segundos)
 uv run python -m tesina_backtest --sin-costos    # la misma grilla con retornos brutos
+uv run python -m tesina_backtest --asset ETH     # la misma grilla sobre ETH/USDT (por defecto BTC)
 uv run python -m tesina_backtest --refresh       # vuelve a descargar los datos
 ```
 
 Cada ejecución corre una sola grilla de configuraciones (`grid.py`): 5 ventanas de momentum (30, 60, 90, 180 y 365 días) × 3 modos del filtro (ambos, pánico, euforia) × 4 juegos de percentiles, más el momentum puro de cada ventana. Son 65 backtests. La regla original es la configuración de 90 días, modo `both` y percentiles 10/20/80/90.
 
-`apply_costs` en `BacktestConfig` prende o apaga los costos. Con costos, los retornos descuentan comisiones y slippage y suman o restan el funding. Sin costos, son brutos. La salida va a `results/con_costos/` o a `results/sin_costos/`:
+`apply_costs` en `BacktestConfig` prende o apaga los costos. Con costos, los retornos descuentan comisiones y slippage y suman o restan el funding. Sin costos, son brutos. La salida va a `results/<activo>/con_costos/` o a `results/<activo>/sin_costos/`, por ejemplo `results/eth/con_costos/`:
 
 | Archivo | Contenido |
 |---|---|
@@ -49,12 +50,12 @@ src/tesina_backtest/
 
 | Serie | Fuente | Archivo |
 |---|---|---|
-| Precio de cierre diario de BTC/USDT | API pública de Binance (`/api/v3/klines`) | `btc_usdt_daily.csv` |
+| Precio de cierre diario de BTC/USDT o ETH/USDT | API pública de Binance (`/api/v3/klines`) | `btc_usdt_daily.csv`, `eth_usdt_daily.csv` |
 | CFGI diario | API de Alternative.me (`/fng/`) | `cfgi_daily.csv` |
 | Tasa de letras del Tesoro a 3 meses (DTB3) | FRED | `dtb3_daily.csv` |
-| Funding del perpetuo BTCUSDT | API pública de Binance Futures (`/fapi/v1/fundingRate`) | `btc_usdt_funding_daily.csv` |
+| Funding del perpetuo BTCUSDT o ETHUSDT | API pública de Binance Futures (`/fapi/v1/fundingRate`) | `btc_usdt_funding_daily.csv`, `eth_usdt_funding_daily.csv` |
 
-`data.load_dataset` une las series por fecha. El precio y el CFGI se unen por intersección. DTB3 se completa hacia adelante en fines de semana y feriados. El funding se agrega por día sumando los tres pagos, y el pago de las 00:00 UTC se asigna al día anterior porque corresponde a la posición mantenida durante ese día. Antes del lanzamiento del perpetuo (10/09/2019) el funding es cero.
+`data.load_dataset` une las series por fecha. El precio y el CFGI se unen por intersección. DTB3 se completa hacia adelante en fines de semana y feriados. El funding se agrega por día sumando los tres pagos, y el pago de las 00:00 UTC se asigna al día anterior porque corresponde a la posición mantenida durante ese día. Antes del lanzamiento del perpetuo (10/09/2019 para BTC, 27/11/2019 para ETH) el funding es cero. El CFGI es el mismo para ambos activos.
 
 El período evaluado va del 2019-09-01 al 2026-09-19 y tiene 2.575 observaciones operables.
 
@@ -110,6 +111,19 @@ La rotación anual es la suma de `|posición_t − posición_t−1|` dividida po
 - Retorno total, retorno anualizado, volatilidad anualizada y máximo drawdown, sobre los retornos de la estrategia.
 - Sharpe y Sortino, sobre el exceso de retorno respecto del refugio.
 
+## Conclusiones
+
+Promedio sobre las cinco ventanas de momentum, con costos, de filtro menos momentum puro (`avg_dSharpe`):
+
+| Filtro | BTC | ETH |
+|---|---|---|
+| Solo pánico, percentiles 15/25 | +0,20 | +0,13 |
+| Solo pánico, percentiles 20/30 | +0,16 | +0,14 |
+| Regla original (90 días, ambos modos, 10/20) | −0,34 | −0,40 |
+| Solo euforia | −0,16 a −0,50 | −0,15 a −0,61 |
+
+Solo el filtro de pánico con percentiles amplios mejora el Sharpe, y lo hace en ambos activos. Salir del mercado en euforia empeora el resultado en todas las ventanas. El CFGI mide el sentimiento de Bitcoin, así que en ETH la señal está menos alineada con el activo.
+
 ## Parámetros
 
 Todos los parámetros están en `BacktestConfig` (`config.py`). `grid.grid_configs` crea cada configuración de la grilla con `dataclasses.replace`.
@@ -117,6 +131,7 @@ Todos los parámetros están en `BacktestConfig` (`config.py`). `grid.grid_confi
 | Parámetro | Valor | Descripción |
 |---|---|---|
 | `start_date`, `end_date` | 2019-09-01, 2026-09-19 | Período evaluado |
+| `asset` | `BTC` | Activo operado: `BTC` o `ETH` |
 | `momentum_window` | 90 | Días de la señal |
 | `volatility_span_lambda` | 0,94 | λ de la EWMA |
 | `volatility_min_periods` | 60 | Mínimo de observaciones para la volatilidad |
