@@ -11,8 +11,9 @@ class BacktestConfig:
     Es inmutable: para variar un parámetro se crea una copia con `dataclasses.replace`.
 
     Attributes:
+        asset: Activo operado, "BTC" o "ETH". El CFGI es el mismo para ambos.
         start_date: Inicio del período de evaluación, alineado con el lanzamiento del
-            perpetuo BTCUSDT (10/09/2019). Los días previos usan funding cero.
+            perpetuo BTCUSDT (10/09/2019); para otros activos el funding es cero hasta el lanzamiento de su perpetuo. Los días previos usan funding cero.
         end_date: Fin fijo del período, para que los resultados no cambien al descargar datos nuevos.
         momentum_window: Días de retornos logarítmicos que suma la señal de momentum.
         volatility_span_lambda: Factor de decaimiento de la volatilidad EWMA de RiskMetrics.
@@ -31,10 +32,11 @@ class BacktestConfig:
         spot_fee_bps: Comisión por lado al contado, en puntos básicos (tomador regular de Binance).
         perp_fee_bps: Comisión por lado en el perpetuo, en puntos básicos.
         slippage_bps: Slippage por lado, en puntos básicos, en ambos mercados.
-        annualization_days: Días por año para anualizar. BTC cotiza todos los días.
+        annualization_days: Días por año para anualizar. El activo cotiza todos los días.
         initial_cash: Capital inicial de las curvas de capital.
     """
 
+    asset: str = "BTC"
     start_date: str = "2019-09-01"
     end_date: str = "2026-09-19"
     momentum_window: int = 90

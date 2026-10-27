@@ -80,7 +80,7 @@ def _summary_row(result: BacktestResult, config: BacktestConfig) -> dict[str, ob
 
     También mide la actividad del filtro: días observados, días en refugio, fracción en
     refugio y `momentum_pnl_forgone`, el retorno bruto que obtuvo el momentum puro en los
-    días en que el filtro estuvo fuera de BTC.
+    días en que el filtro estuvo fuera del activo.
 
     Args:
         result: Resultado de `run_backtest`.
@@ -114,7 +114,7 @@ def _summary_row(result: BacktestResult, config: BacktestConfig) -> dict[str, ob
 
     out_of_market = frame["risk_regime_held"] == 0.0
     momentum_pnl_while_out = (
-        frame.loc[out_of_market, "momentum_position"] * frame.loc[out_of_market, "btc_return"]
+        frame.loc[out_of_market, "momentum_position"] * frame.loc[out_of_market, "asset_return"]
     )
 
     row["observations"] = float(len(frame))
@@ -179,7 +179,9 @@ def run_grid(dataset: pd.DataFrame, base: BacktestConfig) -> None:
         dataset: Dataset diario de `load_dataset`.
         base: Configuración base de la grilla.
     """
-    output_dir = RESULTS_DIR / ("con_costos" if base.apply_costs else "sin_costos")
+    output_dir = (
+        RESULTS_DIR / base.asset.lower() / ("con_costos" if base.apply_costs else "sin_costos")
+    )
     rows: list[dict[str, object]] = []
 
     for config in grid_configs(base):

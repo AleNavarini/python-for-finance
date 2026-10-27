@@ -1,4 +1,4 @@
-"""Punto de entrada: python -m tesina_backtest [--sin-costos] [--refresh]."""
+"""Punto de entrada: python -m tesina_backtest [--asset BTC|ETH] [--sin-costos] [--refresh]."""
 
 import argparse
 
@@ -13,11 +13,12 @@ def main() -> None:
         prog="python -m tesina_backtest", description="Backtests de la tesina de momentum y CFGI"
     )
     parser.add_argument("--sin-costos", action="store_true", help="Corre la grilla sin costos")
+    parser.add_argument("--asset", default="BTC", choices=["BTC", "ETH"], help="Activo operado")
     parser.add_argument("--refresh", action="store_true", help="Vuelve a descargar los datos")
     args = parser.parse_args()
 
-    dataset = load_dataset(refresh=args.refresh)
-    run_grid(dataset, BacktestConfig(apply_costs=not args.sin_costos))
+    dataset = load_dataset(asset=args.asset, refresh=args.refresh)
+    run_grid(dataset, BacktestConfig(asset=args.asset, apply_costs=not args.sin_costos))
 
 
 if __name__ == "__main__":

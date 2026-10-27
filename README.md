@@ -17,12 +17,13 @@ uv sync --python 3.12
 ```bash
 uv run python -m tesina_backtest                 # grilla completa con costos (~15 segundos)
 uv run python -m tesina_backtest --sin-costos    # la misma grilla con retornos brutos
+uv run python -m tesina_backtest --asset ETH     # la misma grilla sobre ETH/USDT (por defecto BTC)
 uv run python -m tesina_backtest --refresh       # vuelve a descargar los datos
 ```
 
 Cada ejecución corre una sola grilla de configuraciones (`grid.py`): 5 ventanas de momentum (30, 60, 90, 180 y 365 días) × 3 modos del filtro (ambos, pánico, euforia) × 4 juegos de percentiles, más el momentum puro de cada ventana. Son 65 backtests. La regla original es la configuración de 90 días, modo `both` y percentiles 10/20/80/90.
 
-`apply_costs` en `BacktestConfig` prende o apaga los costos. Con costos, los retornos descuentan comisiones y slippage y suman o restan el funding. Sin costos, son brutos. La salida va a `results/con_costos/` o a `results/sin_costos/`:
+`apply_costs` en `BacktestConfig` prende o apaga los costos. Con costos, los retornos descuentan comisiones y slippage y suman o restan el funding. Sin costos, son brutos. La salida va a `results/<activo>/con_costos/` o a `results/<activo>/sin_costos/`, por ejemplo `results/eth/con_costos/`:
 
 | Archivo | Contenido |
 |---|---|
@@ -49,12 +50,12 @@ src/tesina_backtest/
 
 | Serie | Fuente | Archivo |
 |---|---|---|
-| Precio de cierre diario de BTC/USDT | API pública de Binance (`/api/v3/klines`) | `btc_usdt_daily.csv` |
+| Precio de cierre diario de BTC/USDT o ETH/USDT | API pública de Binance (`/api/v3/klines`) | `btc_usdt_daily.csv`, `eth_usdt_daily.csv` |
 | CFGI diario | API de Alternative.me (`/fng/`) | `cfgi_daily.csv` |
 | Tasa de letras del Tesoro a 3 meses (DTB3) | FRED | `dtb3_daily.csv` |
-| Funding del perpetuo BTCUSDT | API pública de Binance Futures (`/fapi/v1/fundingRate`) | `btc_usdt_funding_daily.csv` |
+| Funding del perpetuo BTCUSDT o ETHUSDT | API pública de Binance Futures (`/fapi/v1/fundingRate`) | `btc_usdt_funding_daily.csv`, `eth_usdt_funding_daily.csv` |
 
-`data.load_dataset` une las series por fecha. El precio y el CFGI se unen por intersección. DTB3 se completa hacia adelante en fines de semana y feriados. El funding se agrega por día sumando los tres pagos, y el pago de las 00:00 UTC se asigna al día anterior porque corresponde a la posición mantenida durante ese día. Antes del lanzamiento del perpetuo (10/09/2019) el funding es cero.
+`data.load_dataset` une las series por fecha. El precio y el CFGI se unen por intersección. DTB3 se completa hacia adelante en fines de semana y feriados. El funding se agrega por día sumando los tres pagos, y el pago de las 00:00 UTC se asigna al día anterior porque corresponde a la posición mantenida durante ese día. Antes del lanzamiento del perpetuo (10/09/2019 para BTC, 27/11/2019 para ETH) el funding es cero. El CFGI es el mismo para ambos activos.
 
 El período evaluado va del 2019-09-01 al 2026-09-19 y tiene 2.575 observaciones operables.
 
@@ -117,6 +118,7 @@ Todos los parámetros están en `BacktestConfig` (`config.py`). `grid.grid_confi
 | Parámetro | Valor | Descripción |
 |---|---|---|
 | `start_date`, `end_date` | 2019-09-01, 2026-09-19 | Período evaluado |
+| `asset` | `BTC` | Activo operado: `BTC` o `ETH` |
 | `momentum_window` | 90 | Días de la señal |
 | `volatility_span_lambda` | 0,94 | λ de la EWMA |
 | `volatility_min_periods` | 60 | Mínimo de observaciones para la volatilidad |

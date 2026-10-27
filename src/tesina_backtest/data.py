@@ -1,4 +1,4 @@
-"""Descarga, caché local y alineación de precios de BTC, CFGI, DTB3 y funding."""
+"""Descarga, caché local y alineación de precios del activo, CFGI, DTB3 y funding."""
 
 from __future__ import annotations
 
@@ -29,14 +29,15 @@ def _get_json(url: str, params: dict[str, str | int] | None = None) -> object:
     return response.json()
 
 
-def download_btc_usdt_daily(output_path: Path) -> pd.DataFrame:
-    """Descarga los cierres diarios de BTC/USDT del mercado de contado de Binance.
+def download_usdt_daily(output_path: Path, asset: str) -> pd.DataFrame:
+    """Descarga los cierres diarios de ASSET/USDT del mercado de contado de Binance.
 
     Pagina de a 1000 velas desde 2017 y descarta la vela del día en curso, que todavía
     no cerró. Cada fecha corresponde a la vela de 00:00 a 23:59:59 UTC.
 
     Args:
         output_path: CSV donde se guardan los precios.
+        asset: Símbolo del activo, por ejemplo "BTC".
 
     Returns:
         Precio de cierre diario, indexado por fecha.
@@ -51,7 +52,7 @@ def download_btc_usdt_daily(output_path: Path) -> pd.DataFrame:
         payload = _get_json(
             BINANCE_KLINES_URL,
             params={
-                "symbol": "BTCUSDT",
+                "symbol": f"{asset}USDT",
                 "interval": "1d",
                 "startTime": start_ms,
                 "limit": 1000,
@@ -69,7 +70,7 @@ def download_btc_usdt_daily(output_path: Path) -> pd.DataFrame:
         sleep(0.1)
 
     if not rows:
-        raise ValueError("Binance no devolvió precios de BTC/USDT")
+        raise ValueError(f"Binance no devolvió precios de {asset}/USDT")
 
     frame = pd.DataFrame(
         rows,
@@ -153,8 +154,8 @@ def download_dtb3(output_path: Path) -> pd.DataFrame:
     return result
 
 
-def download_btc_usdt_funding(output_path: Path) -> pd.DataFrame:
-    """Descarga las tasas de funding del perpetuo BTCUSDT de Binance y las suma por día.
+def download_usdt_funding(output_path: Path, asset: str) -> pd.DataFrame:
+    """Descarga las tasas de funding del perpetuo ASSETUSDT de Binance y las suma por día.
 
     Binance cobra funding a las 00:00, 08:00 y 16:00 UTC. El pago de las 00:00 se asigna
     al día anterior, porque corresponde a la posición mantenida ese día, igual que el
@@ -162,6 +163,7 @@ def download_btc_usdt_funding(output_path: Path) -> pd.DataFrame:
 
     Args:
         output_path: CSV donde se guarda el funding diario.
+        asset: Símbolo del activo, por ejemplo "BTC".
 
     Returns:
         Suma de las tasas de funding de cada día, indexada por fecha.
@@ -175,7 +177,7 @@ def download_btc_usdt_funding(output_path: Path) -> pd.DataFrame:
     while True:
         payload = _get_json(
             BINANCE_FUNDING_URL,
-            params={"symbol": "BTCUSDT", "startTime": start_ms, "limit": 1000},
+            params={"symbol": f"{asset}USDT", "startTime": start_ms, "limit": 1000},
         )
         if not isinstance(payload, list) or not payload:
             break
@@ -188,7 +190,7 @@ def download_btc_usdt_funding(output_path: Path) -> pd.DataFrame:
         sleep(0.1)
 
     if not rows:
-        raise ValueError("Binance no devolvió tasas de funding de BTCUSDT")
+        raise ValueError(f"Binance no devolvió tasas de funding de {asset}USDT")
 
     frame = pd.DataFrame(rows)
     funding_time = pd.to_datetime(pd.to_numeric(frame["fundingTime"]), unit="ms", utc=True)
@@ -210,7 +212,7 @@ def _load_or_download(path: Path, downloader: Downloader, refresh: bool) -> pd.D
     return pd.read_csv(path, index_col="date", parse_dates=True)
 
 
-def load_dataset(refresh: bool = False) -> pd.DataFrame:
+def load_dataset(asset: str = "BTC", refresh: bool = False) -> pd.DataFrame:
     """Carga las cuatro fuentes y las alinea en un dataset diario.
 
     Solo quedan los días con precio y CFGI. La DTB3 se completa con el último valor
@@ -218,6 +220,7 @@ def load_dataset(refresh: bool = False) -> pd.DataFrame:
     perpetuo. El resultado se guarda en `data/processed/daily_dataset.csv`.
 
     Args:
+        asset: Símbolo del activo, por ejemplo "BTC" o "ETH".
         refresh: Si es True, vuelve a descargar todas las fuentes.
 
     Returns:
@@ -226,14 +229,21 @@ def load_dataset(refresh: bool = False) -> pd.DataFrame:
     Raises:
         ValueError: Si después de alinear quedan huecos en precio, CFGI o DTB3.
     """
-    btc = _load_or_download(DATA_RAW_DIR / "btc_usdt_daily.csv", download_btc_usdt_daily, refresh)
+    name = asset.lower()
+    prices = _load_or_download(
+        DATA_RAW_DIR / f"{name}_usdt_daily.csv",
+        lambda path: download_usdt_daily(path, asset),
+        refresh,
+    )
     cfgi = _load_or_download(DATA_RAW_DIR / "cfgi_daily.csv", download_cfgi, refresh)
     dtb3 = _load_or_download(DATA_RAW_DIR / "dtb3_daily.csv", download_dtb3, refresh)
     funding = _load_or_download(
-        DATA_RAW_DIR / "btc_usdt_funding_daily.csv", download_btc_usdt_funding, refresh
+        DATA_RAW_DIR / f"{name}_usdt_funding_daily.csv",
+        lambda path: download_usdt_funding(path, asset),
+        refresh,
     )
 
-    dataset = btc.join(cfgi, how="inner").join(dtb3, how="left").join(funding, how="left")
+    dataset = prices.join(cfgi, how="inner").join(dtb3, how="left").join(funding, how="left")
     dataset["dtb3"] = dataset["dtb3"].ffill()
     dataset["funding_rate"] = dataset["funding_rate"].fillna(0.0)
 
@@ -242,5 +252,5 @@ def load_dataset(refresh: bool = False) -> pd.DataFrame:
         raise ValueError(f"El dataset alineado contiene valores faltantes: {missing}")
 
     DATA_PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
-    dataset.to_csv(DATA_PROCESSED_DIR / "daily_dataset.csv")
+    dataset.to_csv(DATA_PROCESSED_DIR / f"{name}_daily_dataset.csv")
     return dataset

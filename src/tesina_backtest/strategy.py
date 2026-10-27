@@ -125,15 +125,15 @@ def build_signals(dataset: pd.DataFrame, config: BacktestConfig) -> pd.DataFrame
     """
     frame = dataset.copy()
 
-    frame["btc_return"] = frame["close"].pct_change()
-    frame["btc_log_return"] = np.log(frame["close"]).diff()
+    frame["asset_return"] = frame["close"].pct_change()
+    frame["asset_log_return"] = np.log(frame["close"]).diff()
 
-    frame["momentum"] = frame["btc_log_return"].rolling(config.momentum_window).sum()
+    frame["momentum"] = frame["asset_log_return"].rolling(config.momentum_window).sum()
     frame["direction"] = np.where(frame["momentum"] >= 0, 1.0, -1.0)
     frame.loc[frame["momentum"].isna(), "direction"] = np.nan
 
     daily_variance = (
-        frame["btc_log_return"]
+        frame["asset_log_return"]
         .pow(2)
         .ewm(
             alpha=1 - config.volatility_span_lambda,
