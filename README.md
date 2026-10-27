@@ -1,6 +1,6 @@
-# Momentum en Bitcoin con filtro de sentimiento (CFGI)
+# python-for-finance
 
-Código de la tesina de la Maestría en Finanzas (UCEMA). Evalúa si salir del mercado durante episodios extremos del Crypto Fear and Greed Index (CFGI) mejora una estrategia de momentum de series de tiempo sobre BTC/USDT.
+Backtests en Python para finanzas cuantitativas. El primer proyecto evalúa si salir del mercado durante episodios extremos del Crypto Fear and Greed Index (CFGI) mejora una estrategia de momentum de series de tiempo sobre BTC/USDT o ETH/USDT.
 
 Todo el código vive en `src/tesina_backtest/`. El período de evaluación tiene fecha de fin fija, de modo que descargar datos nuevos no cambia los resultados.
 
@@ -110,6 +110,19 @@ La rotación anual es la suma de `|posición_t − posición_t−1|` dividida po
 
 - Retorno total, retorno anualizado, volatilidad anualizada y máximo drawdown, sobre los retornos de la estrategia.
 - Sharpe y Sortino, sobre el exceso de retorno respecto del refugio.
+
+## Conclusiones
+
+Promedio sobre las cinco ventanas de momentum, con costos, de filtro menos momentum puro (`avg_dSharpe`):
+
+| Filtro | BTC | ETH |
+|---|---|---|
+| Solo pánico, percentiles 15/25 | +0,20 | +0,13 |
+| Solo pánico, percentiles 20/30 | +0,16 | +0,14 |
+| Regla original (90 días, ambos modos, 10/20) | −0,34 | −0,40 |
+| Solo euforia | −0,16 a −0,50 | −0,15 a −0,61 |
+
+Solo el filtro de pánico con percentiles amplios mejora el Sharpe, y lo hace en ambos activos. Salir del mercado en euforia empeora el resultado en todas las ventanas. El CFGI mide el sentimiento de Bitcoin, así que en ETH la señal está menos alineada con el activo.
 
 ## Parámetros
 
